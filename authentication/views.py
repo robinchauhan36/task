@@ -1,46 +1,44 @@
 import datetime
 
-from django.shortcuts import render
-from django.views import View
-from rest_framework import status
-from rest_framework.mixins import ListModelMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import render, redirect
+from django.template import context
+from django.views.generic import TemplateView
+from rest_framework import status, viewsets
+from django.contrib.auth import login
+from django.contrib.auth.forms import AuthenticationForm
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.viewsets import GenericViewSet, ViewSet
-
 from authentication.serializers import RegistrationSerializer, LoginSerializer
 
 
-class RegisterView(APIView):
+class HomeView(LoginRequiredMixin, TemplateView):
+    template_name = "home.html"
+
+
+class RegisterViewSet(viewsets.ModelViewSet):
     """
     Signup view-set is used for signup process.
     """
     http_method_names = ('post',)
     serializer_class = RegistrationSerializer
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         """
         Signup a user to our portal with some required attributes such as email, password, first_name phone etc
         Note- Phone number should be number and email & phone should be unique.
         :param request: wsgi request
-        :param args: allows for any number of optional positional arguments (parameters), which will be assigned to a
-        tuple named args
-        :param kwargs: allows for any number of optional keyword arguments (parameters), which will be in a dict
-        named kwargs
         :return: success-message or error message
         """
         serializer = self.serializer_class(data=request.data)
-        value = request.data
         if serializer.is_valid():
-            if value['email'] == value['confirm email']:
-                serializer.save()
-                return Response(status=status.HTTP_201_CREATED, data=serializer.data)
+            serializer.save()
+
+            return render(request, 'index.html', context)
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
 
 
-
-class LoginView(APIView):
+class LoginViewSet(viewsets.ModelViewSet):
     """
     create:
     Login view is used for login process.
@@ -48,15 +46,11 @@ class LoginView(APIView):
     serializer_class = LoginSerializer
     http_method_names = ('post',)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         """
         If request come with a valid credential (email/username and password) then generate token for request otherwise
         error message
         :param request: wsgi request
-        :param args: allows for any number of optional positional arguments (parameters), which will be assigned to a
-        tuple named args
-        :param kwargs: allows for any number of optional keyword arguments (parameters), which will be in a dict
-         named kwargs
         :return: success or error
         """
         serializer = self.serializer_class(data=request.data, context={'request': request})
@@ -68,7 +62,20 @@ class LoginView(APIView):
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
-class LogoutView(APIView):
+
+def loginView(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect('/home/')
+    else:
+        form = AuthenticationForm()
+    return render(request, 'login.html', {'form': form})
+
+
+class LogoutViewSet(viewsets.ModelViewSet):
     """
     get:
     Logout view is used for application logout process.

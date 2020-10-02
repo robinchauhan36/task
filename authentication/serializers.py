@@ -2,6 +2,7 @@ import re
 
 from django.contrib.auth import authenticate
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from authentication import constant
 from authentication.models import User
@@ -15,10 +16,10 @@ class RegistrationSerializer(serializers.ModelSerializer):
         error_messages=VALIDATION['phone']
     )
     email = serializers.EmailField(required=True, error_messages=VALIDATION['email'])
-    confirm_email = serializers.CharField()
-    password = serializers.CharField()
     confirm_password = serializers.CharField()
-    address = serializers.CharField(required=True, error_messages=VALIDATION['address'])
+    confirm_email = serializers.SerializerMethodField()
+    password = serializers.CharField(required=True)
+    address = serializers.CharField(required=False, error_messages=VALIDATION['address'])
 
     def validate_email(self, data):
         """
@@ -29,6 +30,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=data.lower()).exists():
             raise serializers.ValidationError('Already registered email!')
         return data.lower()
+
 
     def validate_phone(self, data):
         """
@@ -57,13 +59,16 @@ class RegistrationSerializer(serializers.ModelSerializer):
         raise serializers.ValidationError(VALIDATION['phone']['invalid'])
 
     def validate(self, data):
-        # if not data.get('password') or not data.get('confirm_password'):
-        #     raise serializers.ValidationError("Please enter a password and "
-        #         "confirm it.")
-
+        if not data.get('password') or not data.get('confirm_password'):
+            raise serializers.ValidationError("Please enter a password and confirm it.")
         if data.get('password') != data.get('confirm_password'):
             raise serializers.ValidationError("Those passwords don't match.")
+        return data
 
+    @staticmethod
+    def get_confirm_email(self, data):
+        if data.get['email'] != data.get['confirm_email']:
+            raise serializers.ValidationError(" email not matched")
         return data
 
     class Meta(object):
